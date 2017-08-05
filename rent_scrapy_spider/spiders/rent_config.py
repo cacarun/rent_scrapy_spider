@@ -21,7 +21,7 @@ class Config(object):
         # self.douban_cookie = self.cf.get('douban', 'douban_cookie')
         self.douban_login_email = self.cf.get('douban', 'douban_login_email')
         self.douban_login_password = self.cf.get('douban', 'douban_login_password')
-        self.douban_sleep_time = self.cf.getfloat('douban', 'douban_sleep_time')
+        # self.douban_sleep_time = self.cf.getfloat('douban', 'douban_sleep_time')
 
 """
 

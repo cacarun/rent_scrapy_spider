@@ -97,7 +97,7 @@ class RentSpider(scrapy.Spider):
                 last_updated_time = site.xpath('td[@nowrap="nowrap"][3]/text()').extract()
                 if last_updated_time:
                     item['last_updated_time'] = last_updated_time[0]
-                    print item['last_updated_time']
+                    # print item['last_updated_time']
 
                 # if item['last_updated_time']:
                 #     last_updated_timestamp = rent_util.Util.get_time_from_str(item['last_updated_time'])
@@ -111,13 +111,13 @@ class RentSpider(scrapy.Spider):
                 if title:
                     item['title'] = title.xpath('@title').extract()[0]
                     item['url'] = title.xpath('@href').extract()[0]
-                    print item['title']
-                    print item['url']
+                    # print item['title']
+                    # print item['url']
 
                 name = site.xpath('td[@nowrap="nowrap"][1]/a')
                 if name:
                     item['user_name'] = name.xpath('text()').extract()[0]
-                    print item['user_name']
+                    # print item['user_name']
 
                 # check data
                 if item['title'] and item['url'] and item['user_name'] and item['last_updated_time']:
@@ -168,8 +168,8 @@ class RentSpider(scrapy.Spider):
                     item['city'] = city
 
                     print response.url
-                    print content
-                    print 'city:%d' % city
+                    # print content
+                    # print 'city:%d' % city
 
                     # process item
                     yield item
@@ -184,12 +184,12 @@ class RentSpider(scrapy.Spider):
         if response.status == 200:
             captcha_url = response.xpath('//*[@id="captcha_image"]/@src').extract()  # 获取验证码图片的链接
             if len(captcha_url) > 0:
-                print '有验证码，链接为：%s' % captcha_url
+                print 'manual input captcha，link url is：%s' % captcha_url
                 captcha_text = raw_input('Please input the captcha:')
                 self.login_form_data['captcha-solution'] = captcha_text
             else:
-                print '无验证码'
-            print '正在登录中……'
+                print 'no captcha'
+            print 'login processing......'
 
             return [
                 FormRequest.from_response(
@@ -208,16 +208,16 @@ class RentSpider(scrapy.Spider):
         if response.status == 200:
             title = response.xpath('//title/text()').extract()[0]
             if u'登录豆瓣' in title:
-                print '登录失败，请重试！'
+                print 'login failed，please retry!'
             else:
-                print '登录成功'
+                print 'login success!'
 
                 # 分页查找（豆瓣当前是按每页 25 条显示的）
                 # hangzhou: 1
                 # shanghai: 2
-                list_urls = ['https://www.douban.com/group/145219/discussion?start=' + str(i) for i in range(0, 451, 25)] #600
+                list_urls = ['https://www.douban.com/group/145219/discussion?start=' + str(i) for i in range(0, 500, 25)]
                 list_urls_sh = ['https://www.douban.com/group/homeatshanghai/discussion?start=' + str(i) for i in
-                                range(0, 451, 25)]
+                                range(0, 500, 25)]
                 list_urls.extend(list_urls_sh)
 
                 for i in range(len(list_urls)):
@@ -236,16 +236,16 @@ class RentSpider(scrapy.Spider):
         cursor.execute(self.select_sql)
         values = cursor.fetchall()
 
-        print '========== 检查数据是否完整 =========='
+        print '========== Check whether the data is complete =========='
         total_count = len(values)
         empty_count = 0
         for row in values:
             if not str(row[1]) or not str(row[2]) or not str(row[3]) or not str(row[4]) or not str(row[5]) or not str(row[9]):
                 empty_count += 1
                 print '[item is empty]: %s' % str(row[2])
-        print '检查结果 item total count: %d, empty count: %d' % (total_count, empty_count)
+        print 'check result item total count: %d, empty count: %d' % (total_count, empty_count)
 
-        print '========== 开始导出 CVS 文件 =========='
+        print '========== Begin output CVS file =========='
         rent_list_file = open(self.result_rent_list_name, 'wb')
         writer_list = csv.writer(rent_list_file)
         writer_list.writerow(['title', 'url', 'city', 'area', 'last_updated_time'])
@@ -268,7 +268,7 @@ class RentSpider(scrapy.Spider):
         rent_detail_file.close()
 
         cursor.close()
-        print '========== 导出 CVS 文件结束！ =========='
+        print '========== Output CVS file end! =========='
         print '========================================='
 
     def close(self, reason):
