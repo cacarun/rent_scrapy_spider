@@ -68,6 +68,27 @@ class RentSpider(scrapy.Spider):
         # self.update_content_other_sql = 'UPDATE rent SET area = ?, address = ?, contact = ? WHERE url = ?'
         self.select_sql = 'SELECT * FROM rent ORDER BY last_updated_time DESC ,craw_time DESC'
 
+        self.list_urls = self.get_urls()
+
+    @staticmethod
+    def get_urls():
+        # 分页查找（豆瓣当前是按每页 25 条显示的）
+        list_urls = ['https://www.douban.com/group/145219/discussion?start=' + str(i) for i in range(0, 50, 25)]
+        list_urls_sh = ['https://www.douban.com/group/homeatshanghai/discussion?start=' + str(i) for i in
+                        range(0, 50, 25)]
+        list_urls.extend(list_urls_sh)
+        return list_urls
+
+    @staticmethod
+    def get_city_type(url):
+        city = 1
+        if 'https://www.douban.com/group/145219/' in url:
+            city = 1
+        elif 'https://www.douban.com/group/homeatshanghai/' in url:
+            city = 2
+
+        return city
+
     def start_requests(self):
         return [Request(
             url=self.login_url,
@@ -75,17 +96,45 @@ class RentSpider(scrapy.Spider):
             headers=self.douban_header,
             callback=self.post_login)]
 
-        # # 分页查找（豆瓣当前是按每页 25 条显示的）
-        # # hangzhou: 1
-        # # shanghai: 2
-        # list_urls = ['https://www.douban.com/group/145219/discussion?start=' + str(i) for i in range(0, 25, 25)]
-        # list_urls_sh = ['https://www.douban.com/group/homeatshanghai/discussion?start=' + str(i) for i in range(0, 25, 25)]
-        # list_urls.extend(list_urls_sh)
-        #
-        # for i in range(len(list_urls)):
-        #     url = list_urls[i]
-        #     print 'list page url: %s' % url
-        #     yield Request(url=url, headers=self.douban_header, callback=self.parse)
+    def post_login(self, response):
+        if response.status == 200:
+            captcha_url = response.xpath('//*[@id="captcha_image"]/@src').extract()  # 获取验证码图片的链接
+            if len(captcha_url) > 0:
+                print 'manual input captcha, link url is：%s' % captcha_url
+                captcha_text = raw_input('Please input the captcha:')
+                self.login_form_data['captcha-solution'] = captcha_text
+            else:
+                print 'no captcha'
+            print 'login processing......'
+
+            return [
+                FormRequest.from_response(
+                    response,
+                    meta={"cookiejar": response.meta["cookiejar"]},
+                    headers=self.douban_header,
+                    formdata=self.login_form_data,
+                    callback=self.after_login
+                )
+            ]
+
+        else:
+            print 'request login page error %s -status code: %s:' % (self.login_url, response.status)
+
+    def after_login(self, response):
+        if response.status == 200:
+            title = response.xpath('//title/text()').extract()[0]
+            if u'登录豆瓣' in title:
+                print 'login failed, please retry!'
+            else:
+                print 'login success!'
+
+                for i in range(len(self.list_urls)):
+                    url = self.list_urls[i]
+                    print 'list page url: %s' % url
+                    yield Request(url=url, headers=self.douban_header, callback=self.parse)
+
+        else:
+            print 'request post login error %s -status code: %s:' % (self.login_url, response.status)
 
     def parse(self, response):
         if response.status == 200:
@@ -155,12 +204,8 @@ class RentSpider(scrapy.Spider):
                             content_array.append(img_src)
                     content = ','.join(content_array)
 
-                    city = 1
                     group_url = group_item.find_all('a')[0].get('href')
-                    if 'https://www.douban.com/group/145219/' in group_url:
-                        city = 1
-                    elif 'https://www.douban.com/group/homeatshanghai/' in group_url:
-                        city = 2
+                    city = self.get_city_type(group_url)
 
                     item = RentScrapySpiderItem()
                     item['url'] = response.url
@@ -179,54 +224,6 @@ class RentSpider(scrapy.Spider):
                 print 'detail page topic content is null'
         else:
             print 'request detail page error %s -status code: %s:' % (response.url, response.status)
-
-    def post_login(self, response):
-        if response.status == 200:
-            captcha_url = response.xpath('//*[@id="captcha_image"]/@src').extract()  # 获取验证码图片的链接
-            if len(captcha_url) > 0:
-                print 'manual input captcha，link url is：%s' % captcha_url
-                captcha_text = raw_input('Please input the captcha:')
-                self.login_form_data['captcha-solution'] = captcha_text
-            else:
-                print 'no captcha'
-            print 'login processing......'
-
-            return [
-                FormRequest.from_response(
-                    response,
-                    meta={"cookiejar": response.meta["cookiejar"]},
-                    headers=self.douban_header,
-                    formdata=self.login_form_data,
-                    callback=self.after_login
-                )
-            ]
-
-        else:
-            print 'request login page error %s -status code: %s:' % (self.login_url, response.status)
-
-    def after_login(self, response):
-        if response.status == 200:
-            title = response.xpath('//title/text()').extract()[0]
-            if u'登录豆瓣' in title:
-                print 'login failed，please retry!'
-            else:
-                print 'login success!'
-
-                # 分页查找（豆瓣当前是按每页 25 条显示的）
-                # hangzhou: 1
-                # shanghai: 2
-                list_urls = ['https://www.douban.com/group/145219/discussion?start=' + str(i) for i in range(0, 500, 25)]
-                list_urls_sh = ['https://www.douban.com/group/homeatshanghai/discussion?start=' + str(i) for i in
-                                range(0, 500, 25)]
-                list_urls.extend(list_urls_sh)
-
-                for i in range(len(list_urls)):
-                    url = list_urls[i]
-                    print 'list page url: %s' % url
-                    yield Request(url=url, headers=self.douban_header, callback=self.parse)
-
-        else:
-            print 'request post login error %s -status code: %s:' % (self.login_url, response.status)
 
     def generate_csv(self):
         # 导出 cvs 格式文件
