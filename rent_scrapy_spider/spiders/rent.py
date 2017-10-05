@@ -100,7 +100,7 @@ class RentSpider(scrapy.Spider):
         if response.status == 200:
             captcha_url = response.xpath('//*[@id="captcha_image"]/@src').extract()  # 获取验证码图片的链接
             if len(captcha_url) > 0:
-                print 'manual input captcha, link url is：%s' % captcha_url
+                print 'manual input captcha, link url is: %s' % captcha_url
                 captcha_text = raw_input('Please input the captcha:')
                 self.login_form_data['captcha-solution'] = captcha_text
             else:
